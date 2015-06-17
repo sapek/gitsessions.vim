@@ -25,7 +25,7 @@ if !exists('s:session_exist')
 endif
 
 if !exists('g:VIMFILESDIR')
-    let g:VIMFILESDIR = has('unix') ? $HOME . '/.vim/' : $VIM . '/vimfiles/'
+    let g:VIMFILESDIR = has('unix') ? $HOME . '/.vim/' : $HOME . '/vimfiles/'
 endif
 
 " helper functions
@@ -38,16 +38,7 @@ function! s:trim(string)
     return substitute(substitute(a:string, '^\s*\(.\{-}\)\s*$', '\1', ''), '\n', '', '')
 endfunction
 
-function! s:git_branch_name()
-    return s:replace_bad_chars(s:trim(system("\git rev-parse --abbrev-ref HEAD")))
-endfunction
-
-function! s:in_git_repo()
-    return empty(s:trim(system("\git status >/dev/null")))
-endfunction
-
 function! s:os_sep()
-    " TODO(ting|2013-12-29): untested for Windows gvim
     return has('unix') ? '/' : '\'
 endfunction
 
@@ -57,33 +48,13 @@ endfunction
 
 " logic functions
 
-function! s:parent_dir(path)
-    let l:sep = s:os_sep()
-    let l:front = s:is_abs_path(a:path) ? l:sep : ''
-    return l:front . join(split(a:path, l:sep)[:-2], l:sep)
-endfunction
-
-function! s:find_git_dir(dir)
-    if !s:in_git_repo()
-        echoerr "not in git repo"
-        return
+function! s:os_getcwd()
+    let l:cwd = getcwd()
+    if has('unix')
+        return cwd
+    else
+        return '\' . substitute(cwd, ':', '', 'g')
     endif
-
-    if isdirectory(a:dir . '/.git')
-        return a:dir . '/.git'
-    elseif has('file_in_path') && has('path_extra')
-        return finddir('.git', a:dir . ';')
-    elseif
-        return s:find_git_dir_aux(a:dir)
-    endif
-endfunction
-
-function! s:find_git_dir_aux(dir)
-    return isdirectory(a:dir . '/.git') ? a:dir . '/.git' : s:find_git_dir_aux(s:parent_dir(a:dir))
-endfunction
-
-function! s:find_proj_dir(dir)
-    return s:parent_dir(s:find_git_dir(a:dir))
 endfunction
 
 function! s:session_path(sdir, pdir)
@@ -92,22 +63,17 @@ function! s:session_path(sdir, pdir)
 endfunction
 
 function! s:session_dir()
-    if s:in_git_repo()
-        return s:session_path(g:gitsessions_dir, s:find_proj_dir(getcwd()))
-    else
-        return s:session_path(g:gitsessions_dir, getcwd())
-    endif
+    return s:session_path(g:gitsessions_dir, s:os_getcwd())
 endfunction
 
 function! s:session_file()
-    let l:dir = s:session_dir()
-    let l:branch = s:git_branch_name()
-    return (empty(l:branch)) ? l:dir . '/master' : l:dir . '/' . l:branch
+    return s:session_dir() . '/session'
 endfunction
+
 
 " public functions
 
-function! g:GitSessionSave()
+function! g:SessionSave()
     let l:dir = s:session_dir()
     let l:file = s:session_file()
 
@@ -136,7 +102,7 @@ function! g:GitSessionSave()
     redrawstatus!
 endfunction
 
-function! g:GitSessionUpdate(...)
+function! g:SessionUpdate(...)
     let l:show_msg = a:0 > 0 ? a:1 : 1
     let l:file = s:session_file()
 
@@ -148,7 +114,7 @@ function! g:GitSessionUpdate(...)
     endif
 endfunction
 
-function! g:GitSessionLoad(...)
+function! g:SessionLoad(...)
     if argc() != 0
         return
     endif
@@ -166,7 +132,7 @@ function! g:GitSessionLoad(...)
     redrawstatus!
 endfunction
 
-function! g:GitSessionDelete()
+function! g:SessionDelete()
     let l:file = s:session_file()
     let s:session_exist = 0
     if filereadable(l:file)
@@ -177,11 +143,11 @@ endfunction
 
 augroup gitsessions
     autocmd!
-    autocmd VimEnter * :call g:GitSessionLoad()
-    autocmd BufEnter * :call g:GitSessionUpdate(0)
-    autocmd VimLeave * :call g:GitSessionUpdate()
+    autocmd VimEnter * :call g:SessionLoad()
+    autocmd BufEnter * :call g:SessionUpdate(0)
+    autocmd VimLeave * :call g:SessionUpdate()
 augroup END
 
-command GitSessionSave call g:GitSessionSave()
-command GitSessionLoad call g:GitSessionLoad(1)
-command GitSessionDelete call g:GitSessionDelete()
+command SessionSave call g:SessionSave()
+command SessionLoad call g:SessionLoad(1)
+command SessionDelete call g:SessionDelete()
