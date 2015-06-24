@@ -144,7 +144,6 @@ endfunction
 augroup gitsessions
     autocmd!
     autocmd VimEnter * nested :call g:SessionLoad()
-    autocmd BufEnter * :call g:SessionUpdate(0)
     autocmd VimLeave * :call g:SessionUpdate()
 augroup END
 
